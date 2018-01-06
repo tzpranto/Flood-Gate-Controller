@@ -87,6 +87,14 @@ void control_DC_Motor() {
 }
 
 
+void control_Buzzer() {
+	if(water_state1 == water_state2 && water_state2 == water_state3 && water_state1 == CRITICAL) {
+		PORTA |= (1<<PINA0);
+	}
+	else PORTA &= ~(1<<PINA0);
+}
+
+
 /********
  * The higher the distance from sonar to water, lower the water level.
  * So when distance is highest get_water_state(int) returns LOW,
@@ -167,21 +175,18 @@ int main(void)
 		Height_State currentState = get_water_state(sonar_reading);
 		if(currentState == LOW) {
 			Lcd4_Write_String("LOW      ");
-			PORTA &= ~(1<<PINA0);
 		}
 		else if(currentState == MEDIUM) {
 			Lcd4_Write_String("MEDIUM   ");
-			PORTA &= ~(1<<PINA0);
 		}
 		else if(currentState == HIGH) {
 			Lcd4_Write_String("HIGH     ");
-			PORTA &= ~(1<<PINA0);
 		}
 		else {
 			Lcd4_Write_String("CRITICAL ");
-			PORTA |= (1<<PINA0);
 		}
 		state_tracker(currentState);
+		control_Buzzer();
 		control_DC_Motor();
 		_delay_ms(100);
 	}
