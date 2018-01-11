@@ -41,6 +41,16 @@
 *.su
 *.idb
 *.pdb
+*.eep
+*.lss
+*.srec
+*.mk
+
+# Project Files
+*.cproj
+*.atsln
+*.atsuo
+*.pdsbak
 
 # Kernel Module Compile Results
 *.mod*
@@ -50,3 +60,8 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Workspace Files
+*.workspace
+
+*Makefile

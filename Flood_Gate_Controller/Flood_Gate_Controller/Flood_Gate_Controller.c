@@ -1,11 +1,3 @@
-/*
- * exp6.c
- *
- * Created: 4/20/2017 10:34:05 AM
- *  Author: USER
- */ 
-
-
 #define D4 eS_PORTD4
 #define D5 eS_PORTD5
 #define D6 eS_PORTD6
@@ -20,6 +12,8 @@
 #define F_CPU 16000000UL
 #include <util/delay.h>
 #include "lcd.h"
+#include "motor.h"
+#include "sonar.h"
 
 
 #define WATER_MAX_HEIGHT 15
@@ -28,43 +22,21 @@
 #define OFF_TIME 10
 #define ROTATION_TIME 200
 
-static volatile unsigned int pulse = 0;
-static volatile int pulse_reached = 0;
-
 typedef enum Height_State {LOW, MEDIUM, HIGH, CRITICAL} Height_State;
 
+
+//keeping track of the last 3 states of water height and the state of the gate
 Height_State water_state1;
 Height_State water_state2;
 Height_State water_state3;
 Height_State gate_state;
 
-void DC_Motor_Config() {
-	DDRA |= (1 << PINA1);
-	DDRA |= (1 << PINA2);
-	PORTA &= ~(1 << PINA1);
-	PORTA &= ~(1 << PINA2);
-}
 
 
-
-void DC_Motor_ClockwiseRotation() {
-	PORTA &= ~(1 << PINA1);
-	PORTA |= (1 << PINA2);
-}
-
-void DC_Motor_AntiClockwiseRotation() {
-	PORTA |= (1 << PINA1);
-	PORTA &= ~(1 << PINA2);
-}
-
-
-void DC_Motor_Off() {
-	PORTA &= ~(1 << PINA1);
-	PORTA &= ~(1 << PINA2);
-}
-
-
-
+/*****
+ * dc motor controller, it checks whether all three water state are same and
+ * if the gate needs to be closed or opened and controls the motor accordingly
+*****/
 void control_DC_Motor() {
 	if(water_state1 == water_state2 && water_state2 == water_state3 && water_state1 != gate_state) {
 		DC_Motor_Off();
@@ -87,6 +59,8 @@ void control_DC_Motor() {
 }
 
 
+
+//sounds the buzzer if water level critical
 void control_Buzzer() {
 	if(water_state1 == water_state2 && water_state2 == water_state3 && water_state1 == CRITICAL) {
 		PORTA |= (1<<PINA0);
@@ -95,63 +69,58 @@ void control_Buzzer() {
 }
 
 
+
 /********
  * The higher the distance from sonar to water, lower the water level.
  * So when distance is highest get_water_state(int) returns LOW,
  * when distance is lowest it returns HIGH
  ********/
 Height_State get_water_state(double height) {
-	height -= WATER_TO_SONAR;
 	if(height < 0) height = 0; 
-	if(height <= WATER_MAX_HEIGHT/4.0 && height >= 0) return CRITICAL;
-	else if(height > WATER_MAX_HEIGHT/4.0 && height <= WATER_MAX_HEIGHT/2.0) return HIGH;
-	else if(height > WATER_MAX_HEIGHT/2.0 && height <= (3*WATER_MAX_HEIGHT)/4.0) return MEDIUM;
-	return LOW;
+	if(height <= WATER_MAX_HEIGHT/4.0 && height >= 0) return LOW;
+	else if(height > WATER_MAX_HEIGHT/4.0 && height <= WATER_MAX_HEIGHT/2.0) return MEDIUM;
+	else if(height > WATER_MAX_HEIGHT/2.0 && height <= (3*WATER_MAX_HEIGHT)/4.0) return HIGH;
+	return CRITICAL;
 }
 
+
+
+//keeps track of the last 3 states of water height
 void state_tracker(Height_State state) {
 	water_state1 = water_state2;
 	water_state2 = water_state3;
 	water_state3 = state;
 }
 
-ISR(INT0_vect)
-{
-	if (pulse_reached == 1)
-	{
-		TCCR1B = 0;
-		pulse=TCNT1;
-		TCNT1=0;
-		pulse_reached=0;
-	}
-	if (pulse_reached==0)
-	{
-		TCCR1B|=(1<<CS10);
-		pulse_reached=1;
-	}
-}
-
-
 
 
 
 int main(void)
 {
+	//initial water level
 	water_state1 = water_state2 = water_state3 = gate_state = LOW;
+
+	//initialize pins
     DDRD = 0b11111011;
     DDRC = 0xFF;
 	DDRA |= 0x01;
 	PORTA &= ~(1 << PINA0);
-		
+
+	//interrupt related instructions	
 	GICR|=(1<<INT0);
 	MCUCR|=(1<<ISC00);
 	
 	TCCR1A = 0;
 	
+
 	double sonar_reading = 0;
-	char sonar_reading_display[16];
+	double water_height;
+	char water_height_display[16];
+	
 	sei();
 	
+	
+	//initialize LCD and display initial strings
 	Lcd4_Init();
 	
 	Lcd4_Clear();
@@ -159,20 +128,39 @@ int main(void)
 	Lcd4_Write_String("Level: ");
 	
 	Lcd4_Set_Cursor(2, 0);
-	Lcd4_Write_String("Distance: ");
+	Lcd4_Write_String("Height: ");
 	
+	
+	//Initialize DC Motor	
 	DC_Motor_Config();
+
+
 	while(1) {
-		PORTD |= (1<<PIND0);
-		_delay_us(15);
-		PORTD &= ~(1<<PIND0);
-		while(pulse_reached == 0);
-		sonar_reading = (pulse*174.0)/10000;
-		dtostrf(sonar_reading, 6, 2, sonar_reading_display);
+	
+		//trigger sonar
+		trigger_sonar();
+
+		//wait for echo to arrive
+		wait_for_echo();
+
+		//get distance of water	
+		sonar_reading = get_distance_from_sonar();
+
+		
+		//calculate water height
+		water_height = (WATER_MAX_HEIGHT + WATER_TO_SONAR) - sonar_reading;
+
+		//convert double water height to string
+		dtostrf(water_height, 6, 2, water_height_display);
+		
+		//display height in LCD
 		Lcd4_Set_Cursor(2, 10);
-		Lcd4_Write_String(sonar_reading_display);
+		Lcd4_Write_String(water_height_display);
+		
+	
+		//get state according to height and display state on LCD
 		Lcd4_Set_Cursor(1, 7);
-		Height_State currentState = get_water_state(sonar_reading);
+		Height_State currentState = get_water_state(water_height);
 		if(currentState == LOW) {
 			Lcd4_Write_String("LOW      ");
 		}
@@ -185,9 +173,17 @@ int main(void)
 		else {
 			Lcd4_Write_String("CRITICAL ");
 		}
+
+
+		//updated last 3 water states
 		state_tracker(currentState);
+
+		//buzzer controller
 		control_Buzzer();
+		
+		//motor controller
 		control_DC_Motor();
+		
 		_delay_ms(100);
 	}
 }
