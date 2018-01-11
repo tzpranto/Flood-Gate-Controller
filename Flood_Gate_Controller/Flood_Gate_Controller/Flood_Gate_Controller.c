@@ -9,18 +9,20 @@
 #include <avr/interrupt.h>
 #include <stdio.h>
 #include <stdlib.h>
-#define F_CPU 16000000UL
+#define F_CPU 1000000
 #include <util/delay.h>
 #include "lcd.h"
 #include "motor.h"
 #include "sonar.h"
 
 
-#define WATER_MAX_HEIGHT 15
+#define WATER_MAX_HEIGHT 30
 #define WATER_TO_SONAR 4
 
-#define OFF_TIME 10
-#define ROTATION_TIME 200
+#define OFF_TIME 100
+#define ROTATION_TIME 2000
+
+int checkManualGateControl();
 
 typedef enum Height_State {LOW, MEDIUM, HIGH, CRITICAL} Height_State;
 
@@ -29,8 +31,61 @@ typedef enum Height_State {LOW, MEDIUM, HIGH, CRITICAL} Height_State;
 Height_State water_state1;
 Height_State water_state2;
 Height_State water_state3;
-Height_State gate_state;
+volatile Height_State gate_state;
 
+
+
+
+ISR(INT1_vect)
+{
+	_delay_ms(500);
+	GIFR |= (1<<INTF1);
+	if(checkManualGateControl()) {
+		int pinD = PIND;
+		int pinD3 = pinD & (1<<PIND3);
+		if(gate_state != CRITICAL && pinD3 != 0) {
+			DC_Motor_Off();
+			_delay_ms(OFF_TIME);
+			DC_Motor_AntiClockwiseRotation();
+			_delay_ms(ROTATION_TIME);
+			DC_Motor_Off();
+			gate_state++;
+		}
+	}
+}
+
+
+
+ISR(INT2_vect)
+{
+	_delay_ms(500);
+	GIFR |= (1<<INTF2);
+	if(checkManualGateControl()) {
+		int pinB = PINB;
+		int pinB2 = pinB & (1<<PINB2);
+		
+		if(gate_state != LOW && pinB2 != 0) {
+			DC_Motor_Off();
+			_delay_ms(OFF_TIME);
+			DC_Motor_ClockwiseRotation();
+			_delay_ms(ROTATION_TIME);
+			DC_Motor_Off();
+			gate_state--;
+		}
+	}
+}
+
+
+
+/****
+ * check if the manual gate control is enabled or disabled
+****/
+int checkManualGateControl() {
+	int pinA = PINA;
+	int pinA3 = pinA & (1<<PINA3);
+	if(pinA3 != 0) return 1;
+	return 0;
+}
 
 
 /*****
@@ -38,6 +93,7 @@ Height_State gate_state;
  * if the gate needs to be closed or opened and controls the motor accordingly
 *****/
 void control_DC_Motor() {
+	if(checkManualGateControl() == 1) return;
 	if(water_state1 == water_state2 && water_state2 == water_state3 && water_state1 != gate_state) {
 		DC_Motor_Off();
 		_delay_ms(OFF_TIME);
@@ -62,10 +118,10 @@ void control_DC_Motor() {
 
 //sounds the buzzer if water level critical
 void control_Buzzer() {
-	if(water_state1 == water_state2 && water_state2 == water_state3 && water_state1 == CRITICAL) {
+	if(water_state1 == water_state2 && water_state2 == water_state3 && water_state1 == CRITICAL)
 		PORTA |= (1<<PINA0);
-	}
-	else PORTA &= ~(1<<PINA0);
+	else if(water_state1 == water_state2 && water_state2 == water_state3 && water_state1 != CRITICAL)
+		PORTA &= ~(1<<PINA0);
 }
 
 
@@ -101,14 +157,24 @@ int main(void)
 	water_state1 = water_state2 = water_state3 = gate_state = LOW;
 
 	//initialize pins
-    DDRD = 0b11111011;
+    DDRD = 0b11110011;
     DDRC = 0xFF;
-	DDRA |= 0x01;
+	DDRA |= (1<<PINA0);
+	DDRA &= ~(1<<PINA3);
+	
+	//buzzer turned off
 	PORTA &= ~(1 << PINA0);
-
+	
+	DDRB &= ~(1<<PINB2);
+	
 	//interrupt related instructions	
-	GICR|=(1<<INT0);
-	MCUCR|=(1<<ISC00);
+	GICR |= (1<<INT0);
+	GICR |= (1<<INT1);
+	GICR |= (1<<INT2);
+	MCUCR |= (1<<ISC00);
+	MCUCR |= (1<<ISC10);
+	MCUCR |= (1<<ISC11);
+	MCUCSR |= (1<<ISC2);
 	
 	TCCR1A = 0;
 	
@@ -149,6 +215,7 @@ int main(void)
 		
 		//calculate water height
 		water_height = (WATER_MAX_HEIGHT + WATER_TO_SONAR) - sonar_reading;
+		if(water_height < 0) water_height = 0;
 
 		//convert double water height to string
 		dtostrf(water_height, 6, 2, water_height_display);
