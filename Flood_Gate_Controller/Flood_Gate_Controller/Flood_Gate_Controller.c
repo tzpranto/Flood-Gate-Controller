@@ -22,9 +22,6 @@
 #define OFF_TIME 10
 #define ROTATION_TIME 200
 
-static volatile unsigned int pulse = 0;
-static volatile int pulse_reached = 0;
-
 typedef enum Height_State {LOW, MEDIUM, HIGH, CRITICAL} Height_State;
 
 

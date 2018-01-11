@@ -6,6 +6,9 @@
 #include <avr/io.h>
 
 
+static volatile unsigned int pulse = 0;
+static volatile int pulse_reached = 0;
+
 //interrupt for when sonar is triggered and echo is received
 ISR(INT0_vect)
 {
