@@ -36,6 +36,8 @@ volatile Height_State gate_state;
 
 
 
+//manually rotate the gate anti-clockwise using interrupt 1
+
 ISR(INT1_vect)
 {
 	_delay_ms(500);
@@ -55,6 +57,7 @@ ISR(INT1_vect)
 }
 
 
+//manually rotate the gate clockwise using interrupt 2
 
 ISR(INT2_vect)
 {
