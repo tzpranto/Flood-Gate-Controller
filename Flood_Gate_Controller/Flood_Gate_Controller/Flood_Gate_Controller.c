@@ -20,7 +20,7 @@
 #define WATER_TO_SONAR 4
 
 #define OFF_TIME 100
-#define ROTATION_TIME 2000
+#define ROTATION_TIME 1000
 
 int checkManualGateControl();
 
