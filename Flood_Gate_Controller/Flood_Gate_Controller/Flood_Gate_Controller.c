@@ -45,6 +45,8 @@ ISR(INT1_vect)
 	if(checkManualGateControl()) {
 		int pinD = PIND;
 		int pinD3 = pinD & (1<<PIND3);
+		
+		//problem with the AtMega32 chip, so explicitly check if the INT1 pin has high input
 		if(gate_state != CRITICAL && pinD3 != 0) {
 			DC_Motor_Off();
 			_delay_ms(OFF_TIME);
@@ -67,6 +69,7 @@ ISR(INT2_vect)
 		int pinB = PINB;
 		int pinB2 = pinB & (1<<PINB2);
 		
+		//problem with the AtMega32 chip, so explicitly check if the INT1 pin has high input
 		if(gate_state != LOW && pinB2 != 0) {
 			DC_Motor_Off();
 			_delay_ms(OFF_TIME);
@@ -160,8 +163,8 @@ int main(void)
 	water_state1 = water_state2 = water_state3 = gate_state = LOW;
 
 	//initialize pins
-    DDRD = 0b11110011;
-    DDRC = 0xFF;
+    	DDRD = 0b11110011;
+    	DDRC = 0xFF;
 	DDRA |= (1<<PINA0);
 	DDRA &= ~(1<<PINA3);
 	
