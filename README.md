@@ -2,4 +2,4 @@
 
 Video Link: [Automatic Floodgate Controller](https://www.youtube.com/watch?v=TcEPA_51kB8)
 
-Project Description: [Description](https://github.com/tzpranto/Flood-Gate-Controller/blob/master/Report/Report.pdf)
+Project Description: [Description](https://www.overleaf.com/read/gwkkzdkfvqtr)
