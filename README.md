@@ -1,5 +1,5 @@
 # Automatic Floodgate Controller Using Atmega32
 
-Video Link: [Automatic Floodgate Controller](https://www.youtube.com/watch?v=TcEPA_51kB8)
+Video Link: [https://youtu.be/M6CdU4iN2Gw](https://youtu.be/M6CdU4iN2Gw)
 
-Project Description: [Description](https://www.overleaf.com/read/gwkkzdkfvqtr)
+Project Description: [https://www.overleaf.com/read/gwkkzdkfvqtr](https://www.overleaf.com/read/gwkkzdkfvqtr)
