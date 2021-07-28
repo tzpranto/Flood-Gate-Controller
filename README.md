@@ -1,4 +1,4 @@
-# Automatic Floodgate Controller Using Atmega32
+# Automatic Flood Gate Controller Using Atmega32
 
 ## CSE316: Microprocessors and Microcontrollers Sessional
 
